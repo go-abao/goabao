@@ -1,3 +1,12 @@
+/*
+ * @Author: lorock
+ * @Github: https://github.com/lorock
+ * @Date: 2021-09-14 15:13:14
+ * @LastEditors: lorock
+ * @LastEditTime: 2021-09-15 16:38:58
+ * @FilePath: /goabao/abaodocker/image_build.go
+ * @Description:
+ */
 package abaodocker
 
 import (
@@ -9,41 +18,24 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/go-abao/goabao/abaois"
 	"github.com/pkg/errors"
 )
 
-func createTar(srcDir, tarFIle string) error {
-
-	if !IsExist(srcDir) {
-		return errors.New("srcDir not found")
-	}
-
-	/* #nosec */
-	c := exec.Command("tar", "-cf", tarFIle, "-C", srcDir, ".")
-	if err := c.Run(); err != nil {
-		return errors.Wrapf(err, "createTar.exec.Run")
-	}
-	return nil
-}
-
-func tempFileName(prefix, suffix string) (string, error) {
-	randBytes := make([]byte, 16)
-	if _, err := rand.Read(randBytes); err != nil {
-		return "", errors.Wrapf(err, "tempFileName.randBytes.rand.Read")
-	}
-	return filepath.Join(os.TempDir(), prefix+hex.EncodeToString(randBytes)+suffix), nil
-}
-
-/* ImageBuild
-@dir           					  Dockerfile所在文件夹
-@name          					  docker镜像地址以及版本信息
-@imageBuildOptionsAuthConfigs    容器镜像服务认证信息配置
-*/
-func ImageBuild(srcDir, dockerImageURI string, imageBuildOptionsAuthConfigs map[string]types.AuthConfig, timeOutSecond int64) ([]string, error) {
+/**
+ * @description:
+ * @param {string} srcDockerfileDir
+ * @param {DockerImageBaseConfig} dockerImageBaseConfig
+ * @param {AuthConfigMap} imageBuildOptionsAuthConfigs
+ * @param {int64} timeOutSecond
+ * @return {*}
+ */
+func ImageBuild(srcDockerfileDir string, dockerImageBaseConfig DockerImageBaseConfig, imageBuildOptionsAuthConfigs AuthConfigMap, timeOutSecond int64) ([]string, error) {
 
 	tarFile, err := tempFileName("docker-", ".image")
 	if err != nil {
@@ -51,7 +43,7 @@ func ImageBuild(srcDir, dockerImageURI string, imageBuildOptionsAuthConfigs map[
 	}
 	defer os.Remove(tarFile)
 
-	if err := createTar(srcDir, tarFile); err != nil {
+	if err := createTar(srcDockerfileDir, tarFile); err != nil {
 		return nil, errors.Wrapf(err, "docker buildImage.createTar")
 	}
 
@@ -82,9 +74,16 @@ func ImageBuild(srcDir, dockerImageURI string, imageBuildOptionsAuthConfigs map[
 
 	defer os.Chdir(PWD)
 
-	if err := os.Chdir(srcDir); err != nil {
+	if err := os.Chdir(srcDockerfileDir); err != nil {
 		return nil, errors.Wrapf(err, "docker buildImage.os.Chdir()")
 	}
+	dockerImageUrl := []string{
+		dockerImageBaseConfig.RegistryServerURI,
+		dockerImageBaseConfig.ImageNamespace,
+		dockerImageBaseConfig.ImageName,
+	}
+
+	dockerImageURI := strings.Join(dockerImageUrl, "/") + ":" + dockerImageBaseConfig.ImageVersion
 
 	resp, err := cli.ImageBuild(
 		ctx,
@@ -121,29 +120,36 @@ func ImageBuild(srcDir, dockerImageURI string, imageBuildOptionsAuthConfigs map[
 	return messages, nil
 }
 
-// IsExist checks whether a file or directory exists.
-// It returns false when the file or directory does not exist.
-func IsExist(f string) bool {
-	_, err := os.Stat(f)
-	return err == nil || os.IsExist(err)
+/**
+ * @description:
+ * @param {*} srcDir
+ * @param {string} tarFIle
+ * @return {*}
+ */
+func createTar(srcDir, tarFIle string) error {
+
+	if !abaois.IsExist(srcDir) {
+		return errors.New("srcDir not found")
+	}
+
+	/* #nosec */
+	c := exec.Command("tar", "-cf", tarFIle, "-C", srcDir, ".")
+	if err := c.Run(); err != nil {
+		return errors.Wrapf(err, "createTar.exec.Run")
+	}
+	return nil
 }
 
-// IsFile checks whether the path is a file,
-// it returns false when it's a directory or does not exist.
-func IsFile(f string) bool {
-	fi, e := os.Stat(f)
-	if e != nil {
-		return false
+/**
+ * @description:
+ * @param {*} prefix
+ * @param {string} suffix
+ * @return {*}
+ */
+func tempFileName(prefix, suffix string) (string, error) {
+	randBytes := make([]byte, 16)
+	if _, err := rand.Read(randBytes); err != nil {
+		return "", errors.Wrapf(err, "tempFileName.randBytes.rand.Read")
 	}
-	return !fi.IsDir()
-}
-
-// IsDir checks whether the path is a dir,
-// it returns false when it's a directory or does not exist.
-func IsDir(f string) bool {
-	fi, e := os.Stat(f)
-	if e != nil {
-		return false
-	}
-	return fi.IsDir()
+	return filepath.Join(os.TempDir(), prefix+hex.EncodeToString(randBytes)+suffix), nil
 }

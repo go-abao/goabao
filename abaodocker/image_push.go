@@ -1,3 +1,12 @@
+/*
+ * @Author: lorock
+ * @Github: https://github.com/lorock
+ * @Date: 2021-09-14 15:29:20
+ * @LastEditors: lorock
+ * @LastEditTime: 2021-09-15 16:32:44
+ * @FilePath: /goabao/abaodocker/image_push.go
+ * @Description:
+ */
 package abaodocker
 
 import (
@@ -15,7 +24,13 @@ import (
 	"github.com/docker/docker/client"
 )
 
-func ImagePush(dockerRegistryServerURI, dockerUserName, dockerPassword, dockerNamespace, dockerName, dockerImageVersion string, timeOutSecond int64) ([]string, error) {
+/**
+ * @description:
+ * @param {DockerImageBaseConfig} dockerImageBaseConfig
+ * @param {int64} timeOutSecond
+ * @return {*}
+ */
+func ImagePush(dockerImageBaseConfig DockerImageBaseConfig, timeOutSecond int64) ([]string, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeOutSecond)*time.Second)
 	defer cancel()
@@ -27,8 +42,8 @@ func ImagePush(dockerRegistryServerURI, dockerUserName, dockerPassword, dockerNa
 	defer cli.Close()
 
 	authConfig := types.AuthConfig{
-		Username: dockerUserName,
-		Password: dockerPassword,
+		Username: dockerImageBaseConfig.RegistryUserName,
+		Password: dockerImageBaseConfig.RegistryPassword,
 	}
 
 	encodedJSON, err := json.Marshal(authConfig)
@@ -38,11 +53,15 @@ func ImagePush(dockerRegistryServerURI, dockerUserName, dockerPassword, dockerNa
 
 	authStr := base64.URLEncoding.EncodeToString(encodedJSON)
 
-	dockerUrl := []string{dockerRegistryServerURI, dockerNamespace, dockerName}
+	dockerImageUrl := []string{
+		dockerImageBaseConfig.RegistryServerURI,
+		dockerImageBaseConfig.ImageNamespace,
+		dockerImageBaseConfig.ImageName,
+	}
 
-	dockerURI := strings.Join(dockerUrl, "/") + ":" + dockerImageVersion
+	dockerImageURI := strings.Join(dockerImageUrl, "/") + ":" + dockerImageBaseConfig.ImageVersion
 	// docker images push
-	iPush, iPushErr := cli.ImagePush(ctx, dockerURI, types.ImagePushOptions{RegistryAuth: authStr})
+	iPush, iPushErr := cli.ImagePush(ctx, dockerImageURI, types.ImagePushOptions{RegistryAuth: authStr})
 
 	if iPushErr != nil {
 		return nil, errors.Wrapf(err, "docker push error")

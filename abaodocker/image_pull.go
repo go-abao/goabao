@@ -1,3 +1,12 @@
+/*
+ * @Author: lorock
+ * @Github: https://github.com/lorock
+ * @Date: 2021-09-14 15:56:40
+ * @LastEditors: lorock
+ * @LastEditTime: 2021-09-15 16:39:38
+ * @FilePath: /goabao/abaodocker/image_pull.go
+ * @Description:
+ */
 package abaodocker
 
 import (
@@ -14,7 +23,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ImagePull(dockerRegistryServerURI, dockerUserName, dockerPassword, dockerNamespace, dockerName, dockerImageVersion string, timeOutSecond int64) ([]string, error) {
+/**
+ * @description:
+ * @param {DockerImageBaseConfig} dockerImageBaseConfig
+ * @param {int64} timeOutSecond
+ * @return {*}
+ */
+func ImagePull(dockerImageBaseConfig DockerImageBaseConfig, timeOutSecond int64) ([]string, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeOutSecond)*time.Second)
 	defer cancel()
@@ -26,8 +41,8 @@ func ImagePull(dockerRegistryServerURI, dockerUserName, dockerPassword, dockerNa
 	defer cli.Close()
 
 	authConfig := types.AuthConfig{
-		Username: dockerUserName,
-		Password: dockerPassword,
+		Username: dockerImageBaseConfig.RegistryUserName,
+		Password: dockerImageBaseConfig.RegistryPassword,
 	}
 
 	encodedJSON, err := json.Marshal(authConfig)
@@ -37,10 +52,16 @@ func ImagePull(dockerRegistryServerURI, dockerUserName, dockerPassword, dockerNa
 
 	authStr := base64.URLEncoding.EncodeToString(encodedJSON)
 
-	dockerUrl := []string{dockerRegistryServerURI, dockerNamespace, dockerName}
+	dockerImageUrl := []string{
+		dockerImageBaseConfig.RegistryServerURI,
+		dockerImageBaseConfig.ImageNamespace,
+		dockerImageBaseConfig.ImageName,
+	}
+
+	dockerImageURI := strings.Join(dockerImageUrl, "/") + ":" + dockerImageBaseConfig.ImageVersion
 
 	// docker images pull
-	iPull, err := cli.ImagePull(ctx, strings.Join(dockerUrl, "/")+":"+dockerImageVersion, types.ImagePullOptions{RegistryAuth: authStr})
+	iPull, err := cli.ImagePull(ctx, dockerImageURI, types.ImagePullOptions{RegistryAuth: authStr})
 	if err != nil {
 		return nil, errors.Wrapf(err, "docker pull out error")
 	}
