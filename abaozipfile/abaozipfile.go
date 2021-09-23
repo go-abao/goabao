@@ -3,7 +3,7 @@
  * @Github: https://github.com/lorock
  * @Date: 2021-09-23 17:22:51
  * @LastEditors: lorock
- * @LastEditTime: 2021-09-23 17:32:37
+ * @LastEditTime: 2021-09-23 17:57:46
  * @FilePath: /goabao/abaozipfile/abaozipfile.go
  * @Description:
  */
@@ -13,18 +13,22 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 /**
- * @description:
+ * @description: 压缩文件
  * @param {*} source
  * @param {string} target
  * @return {*}
  */
-func ZipFile(source, target string) error {
+func CompressZip(source, target string) error {
 
 	//创建目标zip文件
 	zipFile, err := os.Create(target)
@@ -93,4 +97,97 @@ func ZipFile(source, target string) error {
 		return err
 
 	})
+}
+
+/**
+ * @description: 解压缩
+ * @param {*} zipFile
+ * @param {string} dest
+ * @return {*}
+ */
+func DeCompress(zipFile, dest string) (err error) {
+	//目标文件夹不存在则创建
+	if _, err = os.Stat(dest); err != nil {
+		if os.IsNotExist(err) {
+			os.MkdirAll(dest, 0755)
+		}
+	}
+
+	reader, err := zip.OpenReader(zipFile)
+	if err != nil {
+		return err
+	}
+
+	defer reader.Close()
+
+	for _, file := range reader.File {
+		//    log.Println(file.Name)
+
+		if file.FileInfo().IsDir() {
+
+			err := os.MkdirAll(dest+"/"+file.Name, 0755)
+			if err != nil {
+				log.Println(err)
+			}
+			continue
+		} else {
+			res, err := getDir(dest + "/" + file.Name)
+			if err != nil {
+				return err
+			}
+			err = os.MkdirAll(res, 0755)
+			if err != nil {
+				return err
+			}
+		}
+
+		rc, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer rc.Close()
+
+		filename := dest + "/" + file.Name
+		//err = os.MkdirAll(getDir(filename), 0755)
+		//if err != nil {
+		//    return err
+		//}
+
+		w, err := os.Create(filename)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+
+		_, err = io.Copy(w, rc)
+		if err != nil {
+			return err
+		}
+		//w.Close()
+		//rc.Close()
+	}
+	return
+}
+
+func getDir(path string) (string, error) {
+	res, err := subString(path, 0, strings.LastIndex(path, "/"))
+	if err != nil {
+		return res, errors.Wrapf(err, "getDir()")
+	}
+	return res, nil
+}
+
+func subString(str string, start, end int) (string, error) {
+	rs := []rune(str)
+	length := len(rs)
+
+	if start < 0 || start > length {
+		return "", errors.New("subString start is wrong")
+	}
+
+	if end < start || end > length {
+		return "", errors.New("subString end is wrong")
+	}
+
+	return string(rs[start:end]), nil
 }

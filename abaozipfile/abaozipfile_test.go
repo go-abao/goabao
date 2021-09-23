@@ -3,7 +3,7 @@
  * @Github: https://github.com/lorock
  * @Date: 2021-09-23 17:23:30
  * @LastEditors: lorock
- * @LastEditTime: 2021-09-23 17:33:26
+ * @LastEditTime: 2021-09-23 17:58:09
  * @FilePath: /goabao/abaozipfile/abaozipfile_test.go
  * @Description:
  */
@@ -29,7 +29,12 @@ func TestAbaoZipFile(t *testing.T) {
 	zipFileName := strings.Split(oldFileName, ".")[0] + "_" + currentTime.Format("20060102150405") + mSecond + ".zip"
 
 	//压缩文件
-	err := ZipFile(oldFileName, zipFileName)
+	err := CompressZip(oldFileName, zipFileName)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	err = DeCompress(zipFileName, "test")
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
